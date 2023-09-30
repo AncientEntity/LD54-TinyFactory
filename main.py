@@ -6,8 +6,10 @@ from item import *
 def LoadAssets():
     global assets, tileSize
 
+    print("[Assets] Loading Assets Started")
     assets["world"] = SpriteSheet("art\\tilset.png", tileSize)
     assets["items"] = SpriteSheet("art\\items.png", tileSize)
+    print("[Assets] Loading Assets Completed")
 
 def Tick(deltaTime : int):
     global assets, world
@@ -78,13 +80,21 @@ def Tick(deltaTime : int):
                 screen.blit(tileSprite,(x*tileSize,y*tileSize))
             if(world[x][y] != (0,1,0) and mouseTilePosition[0] == x and mouseTilePosition[1] == y):
                 if(pygame.mouse.get_pressed()[0] or pygame.mouse.get_pressed()[2]):
+
+                    #preview : pygame.Surface = assets["world"][(2,1)].copy()
+                    #preview.set_alpha(100,32)
+                    #screen.blit(preview,(x*tileSize,y*tileSize))
                     screen.blit(assets["world"][(2,1)],(x*tileSize,y*tileSize))
                     if(pygame.mouse.get_pressed()[0]):
-                        world[x][y] = (1,0,placementRotation)
+                        world[x][y] = (placementIdent[0],placementIdent[1],placementRotation)
                     else:
                         world[x][y] = (0,0,0)
                 else:
-                    screen.blit(assets["world"][(1,1)],(x*tileSize,y*tileSize))
+                    preview : pygame.Surface = assets["world"][placementIdent].copy()
+                    preview.convert_alpha()
+                    preview.set_alpha(80)
+                    preview = pygame.transform.rotate(preview,placementRotation)
+                    screen.blit(preview,(x*tileSize,y*tileSize))
 
     #Render Items
     for item in items:
@@ -102,13 +112,14 @@ LoadAssets()
 #Game Setup
 
 placementRotation = 0
+placementIdent = (1,0)
 
 window = pygame.display.set_mode((512,512))
 pygame.display.set_caption("LudumDare54 - AncientEntity")
 pygame.display.set_icon(assets["world"][(1,0)])
 screen = pygame.Surface((256,256))
 world = []
-items = [Item((0,0),[100,100])]
+items = [Item((0,0),[32,32]),Item((0,0),[64,32])]
 for x in range(16):
     r = []
     for y in range(16):
