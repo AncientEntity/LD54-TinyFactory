@@ -24,7 +24,7 @@ def Tick(deltaTime : int):
         if(event.type == pygame.KEYDOWN):
             if(event.key == pygame.K_r):
                 global placementRotation
-                placementRotation += 90
+                placementRotation -= 90
                 placementRotation = placementRotation % 360
 
             #TEMP FOR DEBUG SHOULD GET REMOVED BEFORE RELEASE :))))
