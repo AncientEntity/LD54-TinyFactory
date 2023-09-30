@@ -7,18 +7,31 @@ def LoadAssets():
     global assets, tileSize
 
     print("[Assets] Loading Assets Started")
+
+    #Spritesheets
     assets["world"] = SpriteSheet("art\\tilset.png", tileSize)
     assets["items"] = SpriteSheet("art\\items.png", tileSize)
+
+    #Fonts
+    assets["fpsFont"] = pygame.font.Font("art\\FreeSansBold.ttf",10)
+
+
     print("[Assets] Loading Assets Completed")
 
 def Tick(deltaTime : int):
-    global assets, world
+    global assets, world, placementIdent
     for event in pygame.event.get():
         if(event.type == pygame.KEYDOWN):
             if(event.key == pygame.K_r):
                 global placementRotation
                 placementRotation += 90
                 placementRotation = placementRotation % 360
+
+            #TEMP FOR DEBUG SHOULD GET REMOVED BEFORE RELEASE :))))
+            elif(event.key == pygame.K_1):
+                placementIdent = (1,0)
+            elif(event.key == pygame.K_2):
+                placementIdent = (2,0)
 
     mouseWorldPosition = pygame.mouse.get_pos()
     mouseTilePosition = (mouseWorldPosition[0] // 32, mouseWorldPosition[1] // 32)
@@ -100,10 +113,20 @@ def Tick(deltaTime : int):
     for item in items:
         screen.blit(assets["items"][item.spriteIdent], (item.position[0],item.position[1]))
 
+
+    #ENGINE RENDERING FINISH
+
     window.blit(pygame.transform.scale(screen,(512,512)),(0,0))
+
+    #FPS Counter
+    if(trueDelta != 0):
+        fpsText = assets["fpsFont"].render("FPS: "+str(int(1.0 / trueDelta)),False,(250,250,250))
+        window.blit(fpsText,(3,3))
+
     pygame.display.update(pygame.Rect(0,0,640,640))
 
 #Engine Setup
+pygame.init()
 
 tileSize = 16
 assets = {}
@@ -131,12 +154,13 @@ for x in range(16):
 
 running = True
 lastFrameTime = time.time()
-
+trueDelta = 0
 
 while running:
     delta = time.time() - lastFrameTime
     lastFrameTime = time.time()
 
+    trueDelta = delta
     if(delta >= 1.0 / 30.0): #We clamp delta time to prevent issues with things going too far. Not the best solution but for this project it'll do the trick!
         delta = 1.0 / 30.0
 
