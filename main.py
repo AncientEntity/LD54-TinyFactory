@@ -19,6 +19,12 @@ def LoadAssets():
     assets["fpsFont"] = pygame.font.Font("art\\FreeSansBold.ttf",10)
     assets["moneyFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",20)
 
+    pygame.mixer.init()
+    #Music
+    assets["trackA"] = pygame.mixer.Sound("sound\\A Loop.wav")
+    assets["trackB"] = pygame.mixer.Sound("sound\\B Loop.wav")
+    assets["backMusic"] = pygame.mixer.Sound("sound\\backgroundmusic.wav")
+
 
     print("[Assets] Loading Assets Completed")
 
@@ -38,9 +44,17 @@ def GetValidPosition(worldRef):
             return [xRand,yRand]
     return False
 
-def ThreadDelayedItemAdding():
+def ThreadSubsystemHandler():
     global items, running
     while running:
+
+        #Music Handler
+        if(musicChannel.get_sound() == None):
+            musicChannel.set_volume(0.1)
+            musicChannel.play(random.choice([assets["trackA"],assets["trackB"]]))
+
+
+        #Handle Delayed Items
         for itemDelay in delayedItems: #timeStarted, delay, item
             if(time.time() - itemDelay[0] >= itemDelay[1]):
                 items.append(itemDelay[2])
@@ -383,8 +397,10 @@ trueDelta = 0
 lastObjectivePlaced = 0
 levelCount = 0
 
-delayedThread = threading.Thread(target=ThreadDelayedItemAdding)
-delayedThread.start()
+musicChannel = pygame.mixer.Channel(1)
+
+subsystemThread = threading.Thread(target=ThreadSubsystemHandler)
+subsystemThread.start()
 
 while running:
     delta = time.time() - lastFrameTime
