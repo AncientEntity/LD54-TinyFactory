@@ -21,6 +21,31 @@ def LoadAssets():
 
     print("[Assets] Loading Assets Completed")
 
+def GetValidPosition(worldRef):
+    while True:
+        xRand = random.randint(1, 14)
+        yRand = random.randint(1, 14)
+
+        if(worldRef[xRand][yRand][0] == 0 and worldRef[xRand][yRand] == 3):
+            continue
+
+        if((worldRef[xRand][yRand][0] == 0 and worldRef[xRand][yRand][0] == 0) or (worldRef[xRand][yRand][0] == 0 and worldRef[xRand][yRand][0] == 1)):
+            return [xRand,yRand]
+
+def PlaceNewObjective():
+    targetItem = [random.randint(0,9),random.randint(0,1)]
+    validIn = GetValidPosition(world)
+    world[validIn[0]][validIn[1]] = [0,3,targetItem]
+    validOut = GetValidPosition(world)
+    generators.append(ItemGen(targetItem,[validOut[0] * 16,validOut[1] * 16]))
+    return generators[len(generators)-1]
+
+def HandleObjectives():
+    global lastObjectivePlaced
+    if(time.time() - lastObjectivePlaced >= 5):
+        lastObjectivePlaced = time.time()
+        PlaceNewObjective()
+
 def Tick(deltaTime : int):
     global assets, world, placementIdent
     for event in pygame.event.get():
@@ -39,6 +64,8 @@ def Tick(deltaTime : int):
     mouseWorldPosition = pygame.mouse.get_pos()
     mouseTilePosition = (mouseWorldPosition[0] // 32, mouseWorldPosition[1] // 32)
 
+    HandleObjectives()
+
     #Simulate Generators
     for gen in generators:
         result = gen.AttemptNewItem()
@@ -54,6 +81,8 @@ def Tick(deltaTime : int):
         if(onBlockType[0] == 0 and onBlockType[1] == 3):
             items.remove(item)
             item.active = False
+            if(onBlockType[2] == item.spriteIdent):
+                pass #If item is the correct one, eventually add money and such.
 
 
         #Handle conveyor movement
@@ -104,9 +133,21 @@ def Tick(deltaTime : int):
         for y in range(16):
             screen.blit(assets["world"][world[0][0]],(x*tileSize,y*tileSize))
             if(x != 0 and y != 0):
-                tileSprite = pygame.transform.rotate(assets["world"][world[x][y]],world[x][y][2])
+                tileSprite = None
+                if(type(world[x][y][2]) == int or type(world[x][y][2]) == float):
+                    tileSprite = pygame.transform.rotate(assets["world"][world[x][y]],world[x][y][2])
+                else:
+                    tileSprite = assets["world"][world[x][y]]
                 screen.blit(tileSprite,(x*tileSize,y*tileSize))
-            if(world[x][y] != (0,1,0) and world[x][y] != (0,3,0) and mouseTilePosition[0] == x and mouseTilePosition[1] == y):
+
+                #Handle preview of the item certain things want
+                if(world[x][y][0] == 0 and world[x][y][1] == 3):
+                    preview: pygame.Surface = assets["ritems"][world[x][y][2]].copy()
+                    preview.convert_alpha()
+                    preview.set_alpha(80)
+                    screen.blit(preview, (x * tileSize + 3, y * tileSize + 3))
+
+            if(world[x][y] != (0,1,0) and (world[x][y][0] != 0 or world[x][y][1] != 3) and mouseTilePosition[0] == x and mouseTilePosition[1] == y):
                 if(pygame.mouse.get_pressed()[0] or pygame.mouse.get_pressed()[2]):
 
                     #preview : pygame.Surface = assets["world"][(2,1)].copy()
@@ -130,7 +171,7 @@ def Tick(deltaTime : int):
 
     #Render Items
     for item in items:
-        screen.blit(assets["ritems"][item.spriteIdent], (item.position[0] + 2.5,item.position[1] + 2.5))
+        screen.blit(assets["ritems"][item.spriteIdent], (item.position[0] + 3,item.position[1] + 3))
 
 
     #ENGINE RENDERING FINISH
@@ -169,6 +210,8 @@ for x in range(16):
         if(x == 0 or x == 15 or y == 0 or y == 15):
             r.append((0,1,0))
         else:
+            r.append((0,0,0))
+            '''
             chance = random.randint(0,100)
             if(chance <= 90):
                 r.append((0, 0, 0))
@@ -176,12 +219,14 @@ for x in range(16):
                 r.append((0, 3, 0))
             else:
                 r.append((0, 0, 0))
-                generators.append(ItemGen((random.randint(0,9),random.randint(0,1)),[x*16,y*16]))
+                generators.append(ItemGen((random.randint(0,9),random.randint(0,1)),[x*16,y*16]))'''
     world.append(r)
 
 running = True
 lastFrameTime = time.time()
 trueDelta = 0
+
+lastObjectivePlaced = 0
 
 while running:
     delta = time.time() - lastFrameTime
