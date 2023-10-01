@@ -40,6 +40,11 @@ def LoadMainMenuWorld():
     items = pickle.load(open("data/mainmenuitems.dat", "rb"))
     generators = pickle.load(open("data/mainmenugenerators.dat", "rb"))
 
+def CreateNewNotification(text):
+    newTextRender = assets["infoFont"].render(text, False, (250, 250, 250))
+    newTextRender.convert_alpha()
+    notifications.append((newTextRender,time.time()))
+
 def GetValidPosition(worldRef):
     for i in range(200):
         xRand = random.randint(1, 14)
@@ -71,6 +76,7 @@ def ThreadSubsystemHandler():
             if(time.time() - itemDelay[0] >= itemDelay[1]):
                 items.append(itemDelay[2])
                 delayedItems.remove(itemDelay)
+
         time.sleep(0.1)
 
 def PlaceNewObjective():
@@ -91,13 +97,16 @@ def PlaceNewObjective():
     generators.append(ItemGen(targetItem,[validOut[0] * 16,validOut[1] * 16]))
     print("[Generators] New generator with item: ",targetItem)
     levelCount += 1
+    if(levelCount > 1):
+        CreateNewNotification("Level "+str(levelCount-1)+ " Completed!")
 
-    if(levelCount >= 5):
+    if(levelCount >= 3):
         global underExitButton, underEntranceButton
         underEntranceButton.originalIconSprite = assets["world"][[2, 0]]
         underExitButton.originalIconSprite = assets["world"][[3, 0]]
         underEntranceButton.ChangeScale(underEntranceButton.scale)
         underExitButton.ChangeScale(underExitButton.scale)
+        CreateNewNotification("Underground Belts Unlocked!")
 
     return generators[len(generators)-1]
 
@@ -117,6 +126,7 @@ def SetPlacementIdent(ident,minLevel):
 
 def Tick(deltaTime : int):
     global assets, world, placementIdent, money, items, running, generators, isMainMenu
+    global lastCriticalOvertimeNotification, lastWarningOvertimeNotification
 
     for event in pygame.event.get():
         if(event.type == pygame.QUIT):
@@ -134,9 +144,9 @@ def Tick(deltaTime : int):
             elif(event.key == pygame.K_1):
                 SetPlacementIdent((1,0),0)
             elif (event.key == pygame.K_2):
-                SetPlacementIdent((2,0),5)
+                SetPlacementIdent((2,0),3)
             elif (event.key == pygame.K_3):
-                SetPlacementIdent((3,0),5)
+                SetPlacementIdent((3,0),3)
             elif(DEBUGGAME and event.key == pygame.K_F7):
                 print("[Debug] Saving New Main Menu")
                 if(path.exists("data") == False):
@@ -151,6 +161,8 @@ def Tick(deltaTime : int):
             elif(isMainMenu and event.key == pygame.K_SPACE):
                 isMainMenu = False
                 ResetLevel()
+            elif(DEBUGGAME and event.key == pygame.K_F5):
+                CreateNewNotification("Test Notification: "+str(random.randint(1000,9999)))
 
     mouseWorldPosition = pygame.mouse.get_pos()
     mouseTilePosition = (mouseWorldPosition[0] // 32, mouseWorldPosition[1] // 32)
@@ -163,12 +175,16 @@ def Tick(deltaTime : int):
         if(result != False):
             items.append(result)
 
+    overtimeItems = 0.0
     #Simulate Items
     for item in items[:]:
         if(item.active == False):
             continue
         itemTilePosition = item.GetTilePosition()
         onBlockType = item.GetOnBlockType(world)
+
+        if(isMainMenu == False and time.time() - item.startTime >= 15):
+            overtimeItems += 1
 
         #Handle input
         if(onBlockType[0] == 0 and onBlockType[1] == 3):
@@ -250,6 +266,17 @@ def Tick(deltaTime : int):
             item.position[1] = 0
         elif(item.position[1] > 498):
             item.position[1] = 498
+    overtimeItemPercentage = overtimeItems / len(items)
+
+    if(levelCount >= 3 and len(items) >= 5): #if above level 3, start doing overtiming. (and a min of 5 items)
+        if(overtimeItemPercentage >= 0.5):
+            pass #PLAYER LOSES AT 50%.
+        elif(overtimeItemPercentage >= 0.4 and time.time() - lastCriticalOvertimeNotification >= 5):
+            CreateNewNotification("CRITICAL: 40% of items are overtiming!")
+            lastCriticalOvertimeNotification = time.time()
+        elif(overtimeItemPercentage >= 0.25 and time.time() - lastWarningOvertimeNotification >= 5):
+            CreateNewNotification("WARNING: 25% of items are overtiming!")
+            lastWarningOvertimeNotification = time.time()
 
 
     #Render World
@@ -366,6 +393,17 @@ def Tick(deltaTime : int):
         currentPreview = pygame.transform.scale(assets["world"][placementIdent],[32,32])
         currentPreview = pygame.transform.rotate(currentPreview, placementRotation)
         window.blit(currentPreview,(448,490))
+
+        #Notification Render
+        notIndex = 0
+        for notification in notifications[::-1]:
+            render, startTime = notification
+            if(time.time() - startTime <= 4):
+                render.set_alpha(300 - 255 * ((time.time() - startTime) / 3.0))
+                window.blit(render,(35,460 - 30 * notIndex))
+                notIndex += 1
+            else:
+                notifications.remove(notification)
     else:
         titleTextShadow = assets["titleFont"].render("Tiny Factory", False, (0, 0, 0))
         window.blit(titleTextShadow,(103,103))
@@ -409,10 +447,10 @@ conveyorButton = Button(assets["world"][[1,3]],assets["world"][[1,0]],[32,490])
 conveyorButton.onClick.append(lambda : SetPlacementIdent((1,0),0))
 buttons.append(conveyorButton)
 underEntranceButton = Button(assets["world"][[1,3]],assets["world"][[0,0]],[77,490])
-underEntranceButton.onClick.append(lambda : SetPlacementIdent((2,0),5))
+underEntranceButton.onClick.append(lambda : SetPlacementIdent((2,0),3))
 buttons.append(underEntranceButton)
 underExitButton = Button(assets["world"][[1,3]],assets["world"][[0,0]],[122,490])
-underExitButton.onClick.append(lambda : SetPlacementIdent((3,0),5))
+underExitButton.onClick.append(lambda : SetPlacementIdent((3,0),3))
 buttons.append(underExitButton)
 
 money = 160
@@ -446,6 +484,10 @@ lastObjectivePlaced = 0
 levelCount = 0
 
 musicChannel = pygame.mixer.Channel(1)
+
+lastWarningOvertimeNotification = 0
+lastCriticalOvertimeNotification = 0
+notifications = []
 
 subsystemThread = threading.Thread(target=ThreadSubsystemHandler)
 subsystemThread.start()

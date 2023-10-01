@@ -1,4 +1,4 @@
-
+from time import time
 
 
 class Item:
@@ -6,6 +6,7 @@ class Item:
         self.position = position
         self.spriteIdent = spriteIdent
         self.active = True
+        self.startTime = time()
     def GetTilePosition(self):
         return (round(self.position[0] / 16), round(self.position[1] / 16))
 
