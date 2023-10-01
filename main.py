@@ -103,7 +103,7 @@ def PlaceNewObjective():
 
 def HandleObjectives():
     global lastObjectivePlaced
-    if(time.time() - lastObjectivePlaced >= 15):
+    if(time.time() - lastObjectivePlaced >= 15 and isMainMenu == False):
         lastObjectivePlaced = time.time()
         result = PlaceNewObjective()
         if(result == False):
