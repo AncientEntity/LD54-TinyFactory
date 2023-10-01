@@ -57,6 +57,7 @@ def HandleObjectives():
         PlaceNewObjective()
 
 def Tick(deltaTime : int):
+    global assets, world, placementIdent, money, items, running
     for event in pygame.event.get():
         if(event.type == pygame.QUIT):
             pygame.quit()
