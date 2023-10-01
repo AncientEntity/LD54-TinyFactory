@@ -50,7 +50,7 @@ def ThreadSubsystemHandler():
 
         #Music Handler
         if(musicChannel.get_sound() == None):
-            musicChannel.set_volume(0.1)
+            musicChannel.set_volume(0.05)
             musicChannel.play(random.choice([assets["trackA"],assets["trackB"]]))
 
 
