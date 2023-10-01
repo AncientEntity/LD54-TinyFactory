@@ -18,6 +18,7 @@ def LoadAssets():
 
     #Fonts
     assets["fpsFont"] = pygame.font.Font("art\\FreeSansBold.ttf",10)
+    assets["moneyFont"] = pygame.font.Font("art\\FreeSansBold.ttf",20)
 
 
     print("[Assets] Loading Assets Completed")
@@ -36,9 +37,10 @@ def GetValidPosition(worldRef):
 def ThreadDelayedItemAdding():
     global items
     while True:
-        for timeStarted, delay, item in delayedItems:
-            if(time.time() - timeStarted >= delay):
-                items.append(item)
+        for itemDelay in delayedItems: #timeStarted, delay, item
+            if(time.time() - itemDelay[0] >= itemDelay[1]):
+                items.append(itemDelay[2])
+                delayedItems.remove(itemDelay)
         time.sleep(0.1)
 
 def PlaceNewObjective():
@@ -52,12 +54,12 @@ def PlaceNewObjective():
 
 def HandleObjectives():
     global lastObjectivePlaced
-    if(time.time() - lastObjectivePlaced >= 5):
+    if(time.time() - lastObjectivePlaced >= 15):
         lastObjectivePlaced = time.time()
         PlaceNewObjective()
 
 def Tick(deltaTime : int):
-    global assets, world, placementIdent
+    global assets, world, placementIdent, money, items
     for event in pygame.event.get():
         if(event.type == pygame.QUIT):
             exit(0)
@@ -89,6 +91,8 @@ def Tick(deltaTime : int):
 
     #Simulate Items
     for item in items[:]:
+        if(item.active == False):
+            continue
         itemTilePosition = item.GetTilePosition()
         onBlockType = item.GetOnBlockType(world)
 
@@ -97,7 +101,7 @@ def Tick(deltaTime : int):
             items.remove(item)
             item.active = False
             if(onBlockType[2] == item.spriteIdent):
-                pass #If item is the correct one, eventually add money and such.
+                money += 1
 
         #Handle underground belts, if on entrance
         if(onBlockType[0] == 2 and onBlockType[1] == 0):
@@ -117,11 +121,11 @@ def Tick(deltaTime : int):
                 curPos[0] += lookDirection[0]
                 curPos[1] += lookDirection[1]
                 curBlock = world[curPos[0]][curPos[1]]
-                if(curBlock[0] == 3 and curBlock[1] == 0):
+                if(curBlock[0] == 3 and curBlock[1] == 0 and curBlock[2] == world[itemTilePosition[0]][itemTilePosition[1]][2]): #If exit and same rotation as entrance
                     #FOUND EXIT
                     item.position = [curPos[0]*16,curPos[1]*16]
                     items.remove(item)
-                    delayedItems.append([time.time(),i+1,item])
+                    delayedItems.append([time.time(),(i+1)*0.5,item])
                     #asyncio.run(AsyncItemAdd(item,i+1))
 
                     #asyncLoop = asyncio.get_event_loop()
@@ -201,17 +205,27 @@ def Tick(deltaTime : int):
                     #screen.blit(preview,(x*tileSize,y*tileSize))
                     screen.blit(assets["world"][(2,1)],(x*tileSize,y*tileSize))
                     if(pygame.mouse.get_pressed()[0]):
-                        world[x][y] = (placementIdent[0],placementIdent[1],placementRotation)
+                        if(world[x][y][0] != placementIdent[0] or world[x][y][1] != placementIdent[1]):
+                            #Placing underground belt entrance
+                            if(placementIdent[0] == 2 and placementIdent[1] == 0):
+                                money -= 2
+                                if(money < 8):
+                                    continue
+                            #Placing underground belt exit
+                            elif(placementIdent[0] == 3 and placementIdent[1] == 0):
+                                money -= 2
+                                if(money < 8):
+                                    continue
+                            else:
+                                if(money < 5):
+                                    continue
 
-                        #Placing underground belt entrance
-                        if(placementIdent[0] == 2 and placementIdent[1] == 0):
-                            pass
-                        #Placing underground belt exit
-                        elif(placementIdent[0] == 3 and placementIdent[1] == 0):
-                            pass
+                            world[x][y] = (placementIdent[0],placementIdent[1],placementRotation)
+                            money -= 5
 
-                    else:
+                    elif(world[x][y] != (0,0,0)):
                         world[x][y] = (0,0,0)
+                        money += 5
                 else:
                     preview : pygame.Surface = assets["world"][placementIdent].copy()
                     preview.convert_alpha()
@@ -233,9 +247,12 @@ def Tick(deltaTime : int):
     window.blit(pygame.transform.scale(screen,(512,512)),(0,0))
 
     #FPS Counter
-    if(trueDelta != 0):
-        fpsText = assets["fpsFont"].render("FPS: "+str(int(1.0 / trueDelta)),False,(250,250,250))
-        window.blit(fpsText,(3,3))
+    #if(trueDelta != 0):
+    #    fpsText = assets["fpsFont"].render("FPS: "+str(int(1.0 / trueDelta)),False,(250,250,250))
+    #    window.blit(fpsText,(3,3))
+
+    moneyText = assets["moneyFont"].render("$" + str(money), False, (250, 250, 250))
+    window.blit(moneyText,(3,3))
 
     pygame.display.update(pygame.Rect(0,0,640,640))
 
@@ -259,6 +276,7 @@ world = []
 items = []
 delayedItems = []
 generators = []
+money = 160
 for x in range(16):
     r = []
     for y in range(16):
