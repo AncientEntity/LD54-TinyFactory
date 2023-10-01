@@ -10,6 +10,8 @@ class ItemGen:
         self.lastMade = 0
         self.infinite = True
         self.amount = 0
+        self.lastCreationTime = time.time()
+        self.startTime = time.time()
     def GetTilePosition(self):
         return (round(self.position[0] / 16), round(self.position[1] / 16))
 
@@ -28,5 +30,7 @@ class ItemGen:
         self.recentItem = Item(self.itemIdent,self.position[:])
         self.lastMade = time.time()
         self.amount -= 1
+        if(hasattr(self,"lastCreationTime")): #Main menu pickle doesn't have this variable.
+            self.lastCreationTime = time.time()
 
         return self.recentItem

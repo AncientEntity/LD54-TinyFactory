@@ -45,6 +45,17 @@ def CreateNewNotification(text):
     newTextRender.convert_alpha()
     notifications.append((newTextRender,time.time()))
 
+def TriggerLoss(reason):
+    global isInMenu, menuType, items, generators, lossReason, delayedItems
+    isInMenu = True
+    menuType = MENU_LOST
+    for gen in generators:
+        gen.infinite = False
+        gen.amount = -1
+    items = []
+    lossReason = reason
+    delayedItems = []
+
 def GetValidPosition(worldRef):
     for i in range(200):
         xRand = random.randint(1, 14)
@@ -131,9 +142,10 @@ def SetPlacementIdent(ident,minLevel):
 
 def Tick(deltaTime : int):
     global assets, world, placementIdent, money, items, running, generators, isInMenu
-    global lastCriticalOvertimeNotification, lastWarningOvertimeNotification
-    global menuType
+    global lastCriticalOvertimeNotification, lastWarningOvertimeNotification, lastGeneratorBackedUpNotification
+    global menuType, lossReason
 
+    #Input Processing
     for event in pygame.event.get():
         if(event.type == pygame.QUIT):
             pygame.quit()
@@ -172,6 +184,8 @@ def Tick(deltaTime : int):
                     menuType = MENU_MAIN
             elif(DEBUGGAME and event.key == pygame.K_F5):
                 CreateNewNotification("Test Notification: "+str(random.randint(1000,9999)))
+            elif(DEBUGGAME and event.key == pygame.K_F2):
+                TriggerLoss("DEBUG LOSS MESSAGE.")
 
     mouseWorldPosition = pygame.mouse.get_pos()
     mouseTilePosition = (mouseWorldPosition[0] // 32, mouseWorldPosition[1] // 32)
@@ -183,6 +197,16 @@ def Tick(deltaTime : int):
         result = gen.AttemptNewItem()
         if(result != False):
             items.append(result)
+        #Check if generator is backed up
+        if(isInMenu == False and levelCount >= 2 and time.time() - gen.lastCreationTime >= 10 and time.time() - lastGeneratorBackedUpNotification >= 5):
+            if(time.time() - gen.lastCreationTime <= 15):
+                CreateNewNotification("Warning: Generator Backed Up")
+            elif(time.time() - gen.lastCreationTime < 20):
+                CreateNewNotification("Critical: Generator Backed Up")
+            elif(time.time() - gen.lastCreationTime >= 20):
+                TriggerLoss("Backed up generator.")
+            lastGeneratorBackedUpNotification = time.time()
+
 
     overtimeItems = 0.0
     #Simulate Items
@@ -201,6 +225,9 @@ def Tick(deltaTime : int):
             item.active = False
             if(onBlockType[2] == item.spriteIdent):
                 money += 1
+            else:
+                money -= 2
+                CreateNewNotification("Warning: Item entering wrong generator")
 
         #Handle underground belts, if on entrance
         if(onBlockType[0] == 2 and onBlockType[1] == 0):
@@ -225,11 +252,6 @@ def Tick(deltaTime : int):
                     item.position = [curPos[0]*16,curPos[1]*16]
                     items.remove(item)
                     delayedItems.append([time.time(),(i+1)*0.5,item])
-                    #asyncio.run(AsyncItemAdd(item,i+1))
-
-                    #asyncLoop = asyncio.get_event_loop()
-                    #asyncLoop.run_until_complete(AsyncItemAdd(item,i+1))
-
                     break
 
 
@@ -279,19 +301,14 @@ def Tick(deltaTime : int):
     #Handle overtime warnings/losing
     if(isInMenu == False and len(items) > 0):
         overtimeItemPercentage = overtimeItems / len(items)
-        if(levelCount >= 3 and len(items) >= 5): #if above level 3, start doing overtiming. (and a min of 5 items)
-            if(overtimeItemPercentage >= 0.5):
-                isInMenu = True
-                menuType = MENU_LOST
-                for gen in generators:
-                    gen.infinite = False
-                    gen.amount = -1
-                items = []
-            elif(overtimeItemPercentage >= 0.4 and time.time() - lastCriticalOvertimeNotification >= 5):
-                CreateNewNotification("CRITICAL: 40% of items are overtiming!")
+        if(levelCount >= 3 and len(items) >= 15): #if above level 3, start doing overtiming. (and a min of 5 items)
+            if(overtimeItemPercentage >= 0.30):
+                TriggerLoss("items in overtime.")
+            elif(overtimeItemPercentage >= 0.25 and time.time() - lastCriticalOvertimeNotification >= 5):
+                CreateNewNotification("CRITICAL: 35% of items are overtiming!")
                 lastCriticalOvertimeNotification = time.time()
-            elif(overtimeItemPercentage >= 0.25 and overtimeItemPercentage < 0.4 and time.time() - lastWarningOvertimeNotification >= 5):
-                CreateNewNotification("WARNING: 25% of items are overtiming!")
+            elif(overtimeItemPercentage >= 0.2 and overtimeItemPercentage < 0.35 and time.time() - lastWarningOvertimeNotification >= 5):
+                CreateNewNotification("WARNING: 20% of items are overtiming!")
                 lastWarningOvertimeNotification = time.time()
 
 
@@ -450,6 +467,15 @@ def Tick(deltaTime : int):
         finalMoneyText = assets["moneyFont"].render("Money: " + str(money), False, (250, 250, 250))
         window.blit(finalMoneyText,(90,280))
 
+        lossReasonTextShadow = assets["moneyFont"].render("Reason: "+lossReason, False, (0,0,0))
+        window.blit(lossReasonTextShadow,(93,313))
+        lossReasonText = assets["moneyFont"].render("Reason: "+lossReason, False, (250,250,250))
+        window.blit(lossReasonText,(90,310))
+
+
+        infoText = assets["infoFont"].render("A game by Ryan (AncientEntity) for Ludum Dare 54!", False, (255, 255, 255))
+        window.blit(infoText,(15,500))
+
     pygame.display.update(pygame.Rect(0,0,640,640))
 
 #Engine Setup
@@ -488,7 +514,7 @@ buttons.append(underExitButton)
 
 money = 160
 def ResetLevel(mainMenu=False):
-    global money,world, generators, delayedItems, items, levelCount, lastObjectivePlaced
+    global money,world, generators, delayedItems, items, levelCount, lastObjectivePlaced, lossReason
     money = 160
     generators = []
     delayedItems = []
@@ -496,6 +522,7 @@ def ResetLevel(mainMenu=False):
     levelCount = 0
     lastObjectivePlaced = 0
     world = []
+    lossReason = ""
     for x in range(16):
         r = []
         for y in range(18):
@@ -509,6 +536,7 @@ def ResetLevel(mainMenu=False):
 MENU_MAIN = 0
 MENU_LOST = 1
 
+lossReason = ""
 menuType = MENU_MAIN
 isInMenu = True
 LoadMainMenuWorld()
@@ -523,6 +551,7 @@ musicChannel = pygame.mixer.Channel(1)
 
 lastWarningOvertimeNotification = 0
 lastCriticalOvertimeNotification = 0
+lastGeneratorBackedUpNotification = 0
 notifications = []
 
 subsystemThread = threading.Thread(target=ThreadSubsystemHandler)
