@@ -81,6 +81,7 @@ def ThreadSubsystemHandler():
 
 def PlaceNewObjective():
     global levelCount
+    global underExitButton, underEntranceButton
     targetItem = [random.randint(0,8),random.randint(0,1)]
     validIn = GetValidPosition(world)
 
@@ -100,19 +101,23 @@ def PlaceNewObjective():
     if(levelCount > 1):
         CreateNewNotification("Level "+str(levelCount-1)+ " Completed!")
 
-    if(levelCount >= 3):
-        global underExitButton, underEntranceButton
+    if(levelCount == 3):
         underEntranceButton.originalIconSprite = assets["world"][[2, 0]]
         underExitButton.originalIconSprite = assets["world"][[3, 0]]
         underEntranceButton.ChangeScale(underEntranceButton.scale)
         underExitButton.ChangeScale(underExitButton.scale)
         CreateNewNotification("Underground Belts Unlocked!")
+    elif(levelCount < 3):
+        underEntranceButton.originalIconSprite = assets["world"][[0, 0]]
+        underExitButton.originalIconSprite = assets["world"][[0, 0]]
+        underEntranceButton.ChangeScale(underEntranceButton.scale)
+        underExitButton.ChangeScale(underExitButton.scale)
 
     return generators[len(generators)-1]
 
 def HandleObjectives():
     global lastObjectivePlaced
-    if(time.time() - lastObjectivePlaced >= 15 and isMainMenu == False):
+    if(time.time() - lastObjectivePlaced >= 15 and isInMenu == False):
         lastObjectivePlaced = time.time()
         result = PlaceNewObjective()
         if(result == False):
@@ -125,8 +130,9 @@ def SetPlacementIdent(ident,minLevel):
     placementIdent = ident
 
 def Tick(deltaTime : int):
-    global assets, world, placementIdent, money, items, running, generators, isMainMenu
+    global assets, world, placementIdent, money, items, running, generators, isInMenu
     global lastCriticalOvertimeNotification, lastWarningOvertimeNotification
+    global menuType
 
     for event in pygame.event.get():
         if(event.type == pygame.QUIT):
@@ -158,9 +164,12 @@ def Tick(deltaTime : int):
                 world = pickle.load(open("data/mainmenuworld.dat","rb"))
                 items = pickle.load(open("data/mainmenuitems.dat","rb"))
                 generators = pickle.load(open("data/mainmenugenerators.dat","rb"))
-            elif(isMainMenu and event.key == pygame.K_SPACE):
-                isMainMenu = False
-                ResetLevel()
+            elif(isInMenu and event.key == pygame.K_SPACE):
+                if(menuType == MENU_MAIN):
+                    isInMenu = False
+                    ResetLevel()
+                elif(menuType == MENU_LOST):
+                    menuType = MENU_MAIN
             elif(DEBUGGAME and event.key == pygame.K_F5):
                 CreateNewNotification("Test Notification: "+str(random.randint(1000,9999)))
 
@@ -183,7 +192,7 @@ def Tick(deltaTime : int):
         itemTilePosition = item.GetTilePosition()
         onBlockType = item.GetOnBlockType(world)
 
-        if(isMainMenu == False and time.time() - item.startTime >= 15):
+        if(isInMenu == False and time.time() - item.startTime >= 15):
             overtimeItems += 1
 
         #Handle input
@@ -266,17 +275,24 @@ def Tick(deltaTime : int):
             item.position[1] = 0
         elif(item.position[1] > 498):
             item.position[1] = 498
-    overtimeItemPercentage = overtimeItems / len(items)
 
-    if(levelCount >= 3 and len(items) >= 5): #if above level 3, start doing overtiming. (and a min of 5 items)
-        if(overtimeItemPercentage >= 0.5):
-            pass #PLAYER LOSES AT 50%.
-        elif(overtimeItemPercentage >= 0.4 and time.time() - lastCriticalOvertimeNotification >= 5):
-            CreateNewNotification("CRITICAL: 40% of items are overtiming!")
-            lastCriticalOvertimeNotification = time.time()
-        elif(overtimeItemPercentage >= 0.25 and time.time() - lastWarningOvertimeNotification >= 5):
-            CreateNewNotification("WARNING: 25% of items are overtiming!")
-            lastWarningOvertimeNotification = time.time()
+    #Handle overtime warnings/losing
+    if(isInMenu == False and len(items) > 0):
+        overtimeItemPercentage = overtimeItems / len(items)
+        if(levelCount >= 3 and len(items) >= 5): #if above level 3, start doing overtiming. (and a min of 5 items)
+            if(overtimeItemPercentage >= 0.5):
+                isInMenu = True
+                menuType = MENU_LOST
+                for gen in generators:
+                    gen.infinite = False
+                    gen.amount = -1
+                items = []
+            elif(overtimeItemPercentage >= 0.4 and time.time() - lastCriticalOvertimeNotification >= 5):
+                CreateNewNotification("CRITICAL: 40% of items are overtiming!")
+                lastCriticalOvertimeNotification = time.time()
+            elif(overtimeItemPercentage >= 0.25 and overtimeItemPercentage < 0.4 and time.time() - lastWarningOvertimeNotification >= 5):
+                CreateNewNotification("WARNING: 25% of items are overtiming!")
+                lastWarningOvertimeNotification = time.time()
 
 
     #Render World
@@ -298,7 +314,7 @@ def Tick(deltaTime : int):
                     preview.set_alpha(150)
                     screen.blit(preview, (x * tileSize + 3, y * tileSize + 3))
 
-            if(isMainMenu == False and world[x][y] != (0,1,0) and (world[x][y][0] != 0 or world[x][y][1] != 3) and mouseTilePosition[0] == x and mouseTilePosition[1] == y):
+            if(isInMenu == False and world[x][y] != (0,1,0) and (world[x][y][0] != 0 or world[x][y][1] != 3) and mouseTilePosition[0] == x and mouseTilePosition[1] == y):
                 if(pygame.mouse.get_pressed()[0] or pygame.mouse.get_pressed()[2]):
 
                     screen.blit(assets["world"][(2,1)],(x*tileSize,y*tileSize))
@@ -374,7 +390,7 @@ def Tick(deltaTime : int):
     #    fpsText = assets["fpsFont"].render("FPS: "+str(int(1.0 / trueDelta)),False,(250,250,250))
     #    window.blit(fpsText,(100,3))
 
-    if(isMainMenu == False):
+    if(isInMenu == False):
         moneyText = assets["moneyFont"].render("$" + str(money), False, (250, 250, 250))
         window.blit(moneyText,(40,5))
         currentLevelText = assets["moneyFont"].render("Level: " + str(levelCount), False, (250, 250, 250))
@@ -404,7 +420,7 @@ def Tick(deltaTime : int):
                 notIndex += 1
             else:
                 notifications.remove(notification)
-    else:
+    elif(menuType == MENU_MAIN): #Main Menu
         titleTextShadow = assets["titleFont"].render("Tiny Factory", False, (0, 0, 0))
         window.blit(titleTextShadow,(103,103))
         titleText = assets["titleFont"].render("Tiny Factory", False, (255, 255, 255))
@@ -416,6 +432,23 @@ def Tick(deltaTime : int):
 
         infoText = assets["infoFont"].render("A game by Ryan (AncientEntity) for Ludum Dare 54!", False, (255, 255, 255))
         window.blit(infoText,(15,500))
+    elif(menuType == MENU_LOST):
+        titleTextShadow = assets["titleFont"].render("You Lost!", False, (0, 0, 0))
+        window.blit(titleTextShadow,(136,103))
+        titleText = assets["titleFont"].render("You Lost!", False, (255, 255, 255))
+        window.blit(titleText,(133,100))
+        startTextShadow = assets["descFont"].render("Press Space to Restart", False, (0, 0, 0))
+        window.blit(startTextShadow,(51,203))
+        startText = assets["descFont"].render("Press Space to Restart", False, (255, 255, 255))
+        window.blit(startText,(48,200))
+        currentLevelTextShadow = assets["moneyFont"].render("Level: " + str(levelCount), False, (0, 0, 0))
+        window.blit(currentLevelTextShadow,(93,253))
+        currentLevelText = assets["moneyFont"].render("Level: " + str(levelCount), False, (250, 250, 250))
+        window.blit(currentLevelText,(90,250))
+        finalMoneyTextShadow = assets["moneyFont"].render("Money: " + str(money), False, (0, 0, 0))
+        window.blit(finalMoneyTextShadow,(93,283))
+        finalMoneyText = assets["moneyFont"].render("Money: " + str(money), False, (250, 250, 250))
+        window.blit(finalMoneyText,(90,280))
 
     pygame.display.update(pygame.Rect(0,0,640,640))
 
@@ -473,8 +506,11 @@ def ResetLevel(mainMenu=False):
         world.append(r)
 
 
+MENU_MAIN = 0
+MENU_LOST = 1
 
-isMainMenu = True
+menuType = MENU_MAIN
+isInMenu = True
 LoadMainMenuWorld()
 running = True
 lastFrameTime = time.time()
