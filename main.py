@@ -1,9 +1,12 @@
 import pygame
-import time, random, threading, math
+import time, random, threading, math, pickle
 
+from os import path, mkdir
 from itemgen import ItemGen
 from spritesheet import *
 from button import *
+
+DEBUGGAME = False
 
 def LoadAssets():
     global assets, tileSize
@@ -18,6 +21,9 @@ def LoadAssets():
     #Fonts
     assets["fpsFont"] = pygame.font.Font("art\\FreeSansBold.ttf",10)
     assets["moneyFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",20)
+    assets["titleFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",40)
+    assets["descFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",30)
+    assets["infoFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",15)
 
     pygame.mixer.init()
     #Music
@@ -27,6 +33,12 @@ def LoadAssets():
 
 
     print("[Assets] Loading Assets Completed")
+
+def LoadMainMenuWorld():
+    global world, items, generators
+    world = pickle.load(open("data/mainmenuworld.dat", "rb"))
+    items = pickle.load(open("data/mainmenuitems.dat", "rb"))
+    generators = pickle.load(open("data/mainmenugenerators.dat", "rb"))
 
 def GetValidPosition(worldRef):
     for i in range(200):
@@ -104,7 +116,8 @@ def SetPlacementIdent(ident,minLevel):
     placementIdent = ident
 
 def Tick(deltaTime : int):
-    global assets, world, placementIdent, money, items, running
+    global assets, world, placementIdent, money, items, running, generators, isMainMenu
+
     for event in pygame.event.get():
         if(event.type == pygame.QUIT):
             pygame.quit()
@@ -124,6 +137,20 @@ def Tick(deltaTime : int):
                 SetPlacementIdent((2,0),5)
             elif (event.key == pygame.K_3):
                 SetPlacementIdent((3,0),5)
+            elif(DEBUGGAME and event.key == pygame.K_F7):
+                print("[Debug] Saving New Main Menu")
+                if(path.exists("data") == False):
+                    mkdir("data")
+                pickle.dump(world,open("data/mainmenuworld.dat","wb"))
+                pickle.dump(items,open("data/mainmenuitems.dat","wb"))
+                pickle.dump(generators,open("data/mainmenugenerators.dat","wb"))
+            elif(DEBUGGAME and event.key == pygame.K_F8):
+                world = pickle.load(open("data/mainmenuworld.dat","rb"))
+                items = pickle.load(open("data/mainmenuitems.dat","rb"))
+                generators = pickle.load(open("data/mainmenugenerators.dat","rb"))
+            elif(isMainMenu and event.key == pygame.K_SPACE):
+                isMainMenu = False
+                ResetLevel()
 
     mouseWorldPosition = pygame.mouse.get_pos()
     mouseTilePosition = (mouseWorldPosition[0] // 32, mouseWorldPosition[1] // 32)
@@ -244,7 +271,7 @@ def Tick(deltaTime : int):
                     preview.set_alpha(150)
                     screen.blit(preview, (x * tileSize + 3, y * tileSize + 3))
 
-            if(world[x][y] != (0,1,0) and (world[x][y][0] != 0 or world[x][y][1] != 3) and mouseTilePosition[0] == x and mouseTilePosition[1] == y):
+            if(isMainMenu == False and world[x][y] != (0,1,0) and (world[x][y][0] != 0 or world[x][y][1] != 3) and mouseTilePosition[0] == x and mouseTilePosition[1] == y):
                 if(pygame.mouse.get_pressed()[0] or pygame.mouse.get_pressed()[2]):
 
                     screen.blit(assets["world"][(2,1)],(x*tileSize,y*tileSize))
@@ -320,26 +347,37 @@ def Tick(deltaTime : int):
     #    fpsText = assets["fpsFont"].render("FPS: "+str(int(1.0 / trueDelta)),False,(250,250,250))
     #    window.blit(fpsText,(100,3))
 
-    moneyText = assets["moneyFont"].render("$" + str(money), False, (250, 250, 250))
-    window.blit(moneyText,(40,5))
-    currentLevelText = assets["moneyFont"].render("Level: " + str(levelCount), False, (250, 250, 250))
-    untilNextObjectiveText = assets["moneyFont"].render("Next Level: " + str(int(15 - (time.time() - lastObjectivePlaced))) + "s", False, (250, 250, 250))
-    window.blit(currentLevelText,(130,5))
-    window.blit(untilNextObjectiveText,(280,5))
+    if(isMainMenu == False):
+        moneyText = assets["moneyFont"].render("$" + str(money), False, (250, 250, 250))
+        window.blit(moneyText,(40,5))
+        currentLevelText = assets["moneyFont"].render("Level: " + str(levelCount), False, (250, 250, 250))
+        untilNextObjectiveText = assets["moneyFont"].render("Next Level: " + str(int(15 - (time.time() - lastObjectivePlaced))) + "s", False, (250, 250, 250))
+        window.blit(currentLevelText,(130,5))
+        window.blit(untilNextObjectiveText,(280,5))
+        #Select Buttons
+        for button in buttons:
+            clickResult = button.Tick()
+            if(clickResult == True):
+                button.ChangeScale([45,45])
+            else:
+                button.ChangeScale([40,40])
+            button.Render(window)
+        #Current Placmeent Ident Preview
+        currentPreview = pygame.transform.scale(assets["world"][placementIdent],[32,32])
+        currentPreview = pygame.transform.rotate(currentPreview, placementRotation)
+        window.blit(currentPreview,(448,490))
+    else:
+        titleTextShadow = assets["titleFont"].render("Tiny Factory", False, (0, 0, 0))
+        window.blit(titleTextShadow,(103,103))
+        titleText = assets["titleFont"].render("Tiny Factory", False, (255, 255, 255))
+        window.blit(titleText,(100,100))
+        startTextShadow = assets["descFont"].render("Press Space to Start", False, (0, 0, 0))
+        window.blit(startTextShadow,(69,203))
+        startText = assets["descFont"].render("Press Space to Start", False, (255, 255, 255))
+        window.blit(startText,(65,200))
 
-    #Select Buttons
-    for button in buttons:
-        clickResult = button.Tick()
-        if(clickResult == True):
-            button.ChangeScale([45,45])
-        else:
-            button.ChangeScale([40,40])
-        button.Render(window)
-    #Current Placmeent Ident Preview
-    currentPreview = pygame.transform.scale(assets["world"][placementIdent],[32,32])
-    currentPreview = pygame.transform.rotate(currentPreview, placementRotation)
-    window.blit(currentPreview,(448,490))
-
+        infoText = assets["infoFont"].render("A game by Ryan (AncientEntity) for Ludum Dare 54!", False, (255, 255, 255))
+        window.blit(infoText,(15,500))
 
     pygame.display.update(pygame.Rect(0,0,640,640))
 
@@ -377,19 +415,29 @@ underExitButton = Button(assets["world"][[1,3]],assets["world"][[0,0]],[122,490]
 underExitButton.onClick.append(lambda : SetPlacementIdent((3,0),5))
 buttons.append(underExitButton)
 
-
-
-
 money = 160
-for x in range(16):
-    r = []
-    for y in range(18):
-        if(x == 0 or x == 15 or y == 0 or y >= 15):
-            r.append((0,1,0))
-        else:
-            r.append((0,0,0))
-    world.append(r)
+def ResetLevel(mainMenu=False):
+    global money,world, generators, delayedItems, items, levelCount, lastObjectivePlaced
+    money = 160
+    generators = []
+    delayedItems = []
+    items = []
+    levelCount = 0
+    lastObjectivePlaced = 0
+    world = []
+    for x in range(16):
+        r = []
+        for y in range(18):
+            if(x == 0 or x == 15 or y == 0 or y >= 15):
+                r.append((0,1,0))
+            else:
+                r.append((0,0,0))
+        world.append(r)
 
+
+
+isMainMenu = True
+LoadMainMenuWorld()
 running = True
 lastFrameTime = time.time()
 trueDelta = 0
@@ -402,14 +450,21 @@ musicChannel = pygame.mixer.Channel(1)
 subsystemThread = threading.Thread(target=ThreadSubsystemHandler)
 subsystemThread.start()
 
-while running:
-    delta = time.time() - lastFrameTime
-    lastFrameTime = time.time()
 
-    trueDelta = delta
-    if(delta >= 1.0 / 30.0): #We clamp delta time to prevent issues with things going too far. Not the best solution but for this project it'll do the trick!
-        delta = 1.0 / 30.0
+def EngineLoop():
+    while running:
+        global lastFrameTime
+        delta = time.time() - lastFrameTime
+        lastFrameTime = time.time()
 
-    Tick(delta)
+        trueDelta = delta
+        if(delta >= 1.0 / 30.0): #We clamp delta time to prevent issues with things going too far. Not the best solution but for this project it'll do the trick!
+            delta = 1.0 / 30.0
 
-print("[Engine] Loop has ended. Engine/Game shutting down.")
+        Tick(delta)
+
+
+if __name__ == "__main__":
+    EngineLoop()
+    print("[Engine] Loop has ended. Engine/Game shutting down.")
+    pygame.mixer.quit()
