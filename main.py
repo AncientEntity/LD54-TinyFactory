@@ -33,11 +33,12 @@ def GetValidPosition(worldRef):
             return [xRand,yRand]
 
 def PlaceNewObjective():
-    targetItem = [random.randint(0,9),random.randint(0,1)]
+    targetItem = [random.randint(0,8),random.randint(0,1)]
     validIn = GetValidPosition(world)
     world[validIn[0]][validIn[1]] = [0,3,targetItem]
     validOut = GetValidPosition(world)
     generators.append(ItemGen(targetItem,[validOut[0] * 16,validOut[1] * 16]))
+    print("[Generators] New generator with item: ",targetItem)
     return generators[len(generators)-1]
 
 def HandleObjectives():
@@ -49,6 +50,9 @@ def HandleObjectives():
 def Tick(deltaTime : int):
     global assets, world, placementIdent
     for event in pygame.event.get():
+        if(event.type == pygame.QUIT):
+            exit(0)
+
         if(event.type == pygame.KEYDOWN):
             if(event.key == pygame.K_r):
                 global placementRotation
