@@ -3,6 +3,7 @@ import time, random, threading, math
 
 from itemgen import ItemGen
 from spritesheet import *
+from button import *
 
 def LoadAssets():
     global assets, tileSize
@@ -55,6 +56,10 @@ def HandleObjectives():
     if(time.time() - lastObjectivePlaced >= 15):
         lastObjectivePlaced = time.time()
         PlaceNewObjective()
+
+def SetPlacementIdent(ident):
+    global placementIdent
+    placementIdent = ident
 
 def Tick(deltaTime : int):
     global assets, world, placementIdent, money, items, running
@@ -200,22 +205,19 @@ def Tick(deltaTime : int):
             if(world[x][y] != (0,1,0) and (world[x][y][0] != 0 or world[x][y][1] != 3) and mouseTilePosition[0] == x and mouseTilePosition[1] == y):
                 if(pygame.mouse.get_pressed()[0] or pygame.mouse.get_pressed()[2]):
 
-                    #preview : pygame.Surface = assets["world"][(2,1)].copy()
-                    #preview.set_alpha(100,32)
-                    #screen.blit(preview,(x*tileSize,y*tileSize))
                     screen.blit(assets["world"][(2,1)],(x*tileSize,y*tileSize))
                     if(pygame.mouse.get_pressed()[0]):
                         if(world[x][y][0] != placementIdent[0] or world[x][y][1] != placementIdent[1]):
                             #Placing underground belt entrance
                             if(placementIdent[0] == 2 and placementIdent[1] == 0):
-                                money -= 2
                                 if(money < 8):
                                     continue
+                                money -= 2
                             #Placing underground belt exit
                             elif(placementIdent[0] == 3 and placementIdent[1] == 0):
-                                money -= 2
                                 if(money < 8):
                                     continue
+
                             else:
                                 if(money < 5):
                                     continue
@@ -232,6 +234,30 @@ def Tick(deltaTime : int):
                     preview.set_alpha(80)
                     preview = pygame.transform.rotate(preview,placementRotation)
                     screen.blit(preview,(x*tileSize,y*tileSize))
+
+    #Placing undergrounds, so do the underground preview
+    if((placementIdent[0] == 2 or placementIdent[0] == 3) and placementIdent[1] == 0):
+        for x in range(len(world)):
+            for y in range(len(world[0])):
+                # Handle 'underground' preview if placing underground belt
+                if (world[x][y][1] == 0 and (world[x][y][0] == 2)):
+                    rot = world[x][y][2]
+                    lookDirection = [0, 0]
+                    if (rot == 0):  # Move right
+                        lookDirection = [1, 0]
+                    elif (rot == 180):  # Move left
+                        lookDirection = [-1, 0]
+                    elif (rot == 270):  # Move down
+                        lookDirection = [0, 1]
+                    elif (rot == 90):  # Move up
+                        lookDirection = [0, -1]
+                    curPos = [x, y]  # Convert from tuple
+                    for i in range(3):  # Max underground of 3
+                        curPos[0] += lookDirection[0]
+                        curPos[1] += lookDirection[1]
+                        rotatedPreview = pygame.transform.rotate(assets["world"][[1, 1]],rot)
+                        screen.blit(rotatedPreview, (curPos[0] * tileSize, curPos[1] * tileSize))
+
 
     #Render Generators
     for gen in generators:
@@ -257,6 +283,19 @@ def Tick(deltaTime : int):
     untilNextObjectiveText = assets["moneyFont"].render("Next Order: " + str(int(15 - (time.time() - lastObjectivePlaced))) + "s", False, (250, 250, 250))
     window.blit(untilNextObjectiveText,(350,3))
 
+    #Select Buttons
+    for button in buttons:
+        clickResult = button.Tick()
+        if(clickResult == True):
+            button.ChangeScale([45,45])
+        else:
+            button.ChangeScale([40,40])
+        button.Render(window)
+    #Current Placmeent Ident Preview
+    currentPreview = pygame.transform.scale(assets["world"][placementIdent],[32,32])
+    window.blit(currentPreview,(448,490))
+
+
     pygame.display.update(pygame.Rect(0,0,640,640))
 
 #Engine Setup
@@ -279,6 +318,23 @@ world = []
 items = []
 delayedItems = []
 generators = []
+
+#Initialize buttons
+buttons = []
+
+conveyorButton = Button(assets["world"][[1,3]],assets["world"][[1,0]],[32,490])
+conveyorButton.onClick.append(lambda : SetPlacementIdent((1,0)))
+buttons.append(conveyorButton)
+underEntranceButton = Button(assets["world"][[1,3]],assets["world"][[2,0]],[77,490])
+underEntranceButton.onClick.append(lambda : SetPlacementIdent((2,0)))
+buttons.append(underEntranceButton)
+underExitButton = Button(assets["world"][[1,3]],assets["world"][[3,0]],[122,490])
+underExitButton.onClick.append(lambda : SetPlacementIdent((3,0)))
+buttons.append(underExitButton)
+
+
+
+
 money = 160
 for x in range(16):
     r = []
