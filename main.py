@@ -1,10 +1,8 @@
 import pygame
-import time, random, threading
+import time, random, threading, math
 
 from itemgen import ItemGen
 from spritesheet import *
-from sys import exit
-from item import *
 
 def LoadAssets():
     global assets, tileSize
@@ -59,10 +57,11 @@ def HandleObjectives():
         PlaceNewObjective()
 
 def Tick(deltaTime : int):
-    global assets, world, placementIdent, money, items
     for event in pygame.event.get():
         if(event.type == pygame.QUIT):
-            exit(0)
+            pygame.quit()
+            running = False
+            return
 
         if(event.type == pygame.KEYDOWN):
             if(event.key == pygame.K_r):
@@ -245,6 +244,7 @@ def Tick(deltaTime : int):
     #ENGINE RENDERING FINISH
 
     window.blit(pygame.transform.scale(screen,(512,512)),(0,0))
+    #pygame.draw.arc(window,(255,0,0),pygame.Rect(450,10,20,20),0,math.pi)
 
     #FPS Counter
     #if(trueDelta != 0):
@@ -253,6 +253,8 @@ def Tick(deltaTime : int):
 
     moneyText = assets["moneyFont"].render("$" + str(money), False, (250, 250, 250))
     window.blit(moneyText,(3,3))
+    untilNextObjectiveText = assets["moneyFont"].render("Next Order: " + str(int(15 - (time.time() - lastObjectivePlaced))) + "s", False, (250, 250, 250))
+    window.blit(untilNextObjectiveText,(350,3))
 
     pygame.display.update(pygame.Rect(0,0,640,640))
 
@@ -269,7 +271,7 @@ placementRotation = 0
 placementIdent = (1,0)
 
 window = pygame.display.set_mode((512,512))
-pygame.display.set_caption("LudumDare54 - AncientEntity")
+pygame.display.set_caption("Tiny Factory - LD54 - AncientEntity")
 pygame.display.set_icon(assets["world"][(1,0)])
 screen = pygame.Surface((256,256))
 world = []
