@@ -17,21 +17,26 @@ def LoadAssets():
 
     #Fonts
     assets["fpsFont"] = pygame.font.Font("art\\FreeSansBold.ttf",10)
-    assets["moneyFont"] = pygame.font.Font("art\\FreeSansBold.ttf",20)
+    assets["moneyFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",20)
 
 
     print("[Assets] Loading Assets Completed")
 
 def GetValidPosition(worldRef):
-    while True:
+    for i in range(200):
         xRand = random.randint(1, 14)
         yRand = random.randint(1, 14)
 
-        if(worldRef[xRand][yRand][0] == 0 and worldRef[xRand][yRand] == 3):
+        #Block if input/output
+        if(worldRef[xRand][yRand][0] == 0 and worldRef[xRand][yRand][1] == 3):
+            continue
+        if(worldRef[xRand][yRand][0] == 0 and worldRef[xRand][yRand][1] == 2):
             continue
 
-        if((worldRef[xRand][yRand][0] == 0 and worldRef[xRand][yRand][0] == 0) or (worldRef[xRand][yRand][0] == 0 and worldRef[xRand][yRand][0] == 1)):
+        #Valid spot if it's an empty spot or a side wall
+        if((worldRef[xRand][yRand][0] == 0 and worldRef[xRand][yRand][1] == 0)):
             return [xRand,yRand]
+    return False
 
 def ThreadDelayedItemAdding():
     global items, running
@@ -43,22 +48,45 @@ def ThreadDelayedItemAdding():
         time.sleep(0.1)
 
 def PlaceNewObjective():
+    global levelCount
     targetItem = [random.randint(0,8),random.randint(0,1)]
     validIn = GetValidPosition(world)
+
+    if(validIn == False):
+        return False
+    previous = world[validIn[0]][validIn[1]]
     world[validIn[0]][validIn[1]] = [0,3,targetItem]
     validOut = GetValidPosition(world)
+
+    if(validOut == False):
+        world[validIn[0]][validIn[1]] = previous
+        return False
+
     generators.append(ItemGen(targetItem,[validOut[0] * 16,validOut[1] * 16]))
     print("[Generators] New generator with item: ",targetItem)
+    levelCount += 1
+
+    if(levelCount >= 5):
+        global underExitButton, underEntranceButton
+        underEntranceButton.originalIconSprite = assets["world"][[2, 0]]
+        underExitButton.originalIconSprite = assets["world"][[3, 0]]
+        underEntranceButton.ChangeScale(underEntranceButton.scale)
+        underExitButton.ChangeScale(underExitButton.scale)
+
     return generators[len(generators)-1]
 
 def HandleObjectives():
     global lastObjectivePlaced
     if(time.time() - lastObjectivePlaced >= 15):
         lastObjectivePlaced = time.time()
-        PlaceNewObjective()
+        result = PlaceNewObjective()
+        if(result == False):
+            print("Failed to spawn new objective, not enough space.")
 
-def SetPlacementIdent(ident):
+def SetPlacementIdent(ident,minLevel):
     global placementIdent
+    if(levelCount < minLevel):
+        return
     placementIdent = ident
 
 def Tick(deltaTime : int):
@@ -77,11 +105,11 @@ def Tick(deltaTime : int):
 
             #TEMP FOR DEBUG SHOULD GET REMOVED BEFORE RELEASE :))))
             elif(event.key == pygame.K_1):
-                placementIdent = (1,0)
+                SetPlacementIdent((1,0),0)
             elif (event.key == pygame.K_2):
-                placementIdent = (2, 0)
+                SetPlacementIdent((2,0),5)
             elif (event.key == pygame.K_3):
-                placementIdent = (3, 0)
+                SetPlacementIdent((3,0),5)
 
     mouseWorldPosition = pygame.mouse.get_pos()
     mouseTilePosition = (mouseWorldPosition[0] // 32, mouseWorldPosition[1] // 32)
@@ -210,14 +238,14 @@ def Tick(deltaTime : int):
                         if(world[x][y][0] != placementIdent[0] or world[x][y][1] != placementIdent[1]):
                             #Placing underground belt entrance
                             if(placementIdent[0] == 2 and placementIdent[1] == 0):
-                                if(money < 8):
+                                if(money < 10):
                                     continue
-                                money -= 2
+                                money -= 5
                             #Placing underground belt exit
                             elif(placementIdent[0] == 3 and placementIdent[1] == 0):
-                                if(money < 8):
+                                if(money < 10):
                                     continue
-
+                                money -= 5
                             else:
                                 if(money < 5):
                                     continue
@@ -274,14 +302,16 @@ def Tick(deltaTime : int):
     #pygame.draw.arc(window,(255,0,0),pygame.Rect(450,10,20,20),0,math.pi)
 
     #FPS Counter
-    if(trueDelta != 0):
-        fpsText = assets["fpsFont"].render("FPS: "+str(int(1.0 / trueDelta)),False,(250,250,250))
-        window.blit(fpsText,(100,3))
+    #if(trueDelta != 0):
+    #    fpsText = assets["fpsFont"].render("FPS: "+str(int(1.0 / trueDelta)),False,(250,250,250))
+    #    window.blit(fpsText,(100,3))
 
     moneyText = assets["moneyFont"].render("$" + str(money), False, (250, 250, 250))
-    window.blit(moneyText,(3,3))
-    untilNextObjectiveText = assets["moneyFont"].render("Next Order: " + str(int(15 - (time.time() - lastObjectivePlaced))) + "s", False, (250, 250, 250))
-    window.blit(untilNextObjectiveText,(350,3))
+    window.blit(moneyText,(40,5))
+    currentLevelText = assets["moneyFont"].render("Level: " + str(levelCount), False, (250, 250, 250))
+    untilNextObjectiveText = assets["moneyFont"].render("Next Level: " + str(int(15 - (time.time() - lastObjectivePlaced))) + "s", False, (250, 250, 250))
+    window.blit(currentLevelText,(130,5))
+    window.blit(untilNextObjectiveText,(280,5))
 
     #Select Buttons
     for button in buttons:
@@ -293,6 +323,7 @@ def Tick(deltaTime : int):
         button.Render(window)
     #Current Placmeent Ident Preview
     currentPreview = pygame.transform.scale(assets["world"][placementIdent],[32,32])
+    currentPreview = pygame.transform.rotate(currentPreview, placementRotation)
     window.blit(currentPreview,(448,490))
 
 
@@ -323,13 +354,13 @@ generators = []
 buttons = []
 
 conveyorButton = Button(assets["world"][[1,3]],assets["world"][[1,0]],[32,490])
-conveyorButton.onClick.append(lambda : SetPlacementIdent((1,0)))
+conveyorButton.onClick.append(lambda : SetPlacementIdent((1,0),0))
 buttons.append(conveyorButton)
-underEntranceButton = Button(assets["world"][[1,3]],assets["world"][[2,0]],[77,490])
-underEntranceButton.onClick.append(lambda : SetPlacementIdent((2,0)))
+underEntranceButton = Button(assets["world"][[1,3]],assets["world"][[0,0]],[77,490])
+underEntranceButton.onClick.append(lambda : SetPlacementIdent((2,0),5))
 buttons.append(underEntranceButton)
-underExitButton = Button(assets["world"][[1,3]],assets["world"][[3,0]],[122,490])
-underExitButton.onClick.append(lambda : SetPlacementIdent((3,0)))
+underExitButton = Button(assets["world"][[1,3]],assets["world"][[0,0]],[122,490])
+underExitButton.onClick.append(lambda : SetPlacementIdent((3,0),5))
 buttons.append(underExitButton)
 
 
@@ -350,6 +381,7 @@ lastFrameTime = time.time()
 trueDelta = 0
 
 lastObjectivePlaced = 0
+levelCount = 0
 
 delayedThread = threading.Thread(target=ThreadDelayedItemAdding)
 delayedThread.start()
