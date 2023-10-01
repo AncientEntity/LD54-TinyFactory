@@ -1,5 +1,7 @@
 import pygame
-import time
+import time, random
+
+from itemgen import ItemGen
 from spritesheet import *
 from item import *
 
@@ -11,6 +13,7 @@ def LoadAssets():
     #Spritesheets
     assets["world"] = SpriteSheet("art\\tilset.png", tileSize)
     assets["items"] = SpriteSheet("art\\items.png", tileSize)
+    assets["ritems"] = SpriteSheet("art\\ryanitems.png", 10)
 
     #Fonts
     assets["fpsFont"] = pygame.font.Font("art\\FreeSansBold.ttf",10)
@@ -36,10 +39,22 @@ def Tick(deltaTime : int):
     mouseWorldPosition = pygame.mouse.get_pos()
     mouseTilePosition = (mouseWorldPosition[0] // 32, mouseWorldPosition[1] // 32)
 
+    #Simulate Generators
+    for gen in generators:
+        result = gen.AttemptNewItem()
+        if(result != False):
+            items.append(result)
+
     #Simulate Items
-    for item in items:
-        itemTilePosition = (round(item.position[0] / 16), round(item.position[1] / 16))
-        onBlockType = world[int(itemTilePosition[0])][int(itemTilePosition[1])]
+    for item in items[:]:
+        itemTilePosition = item.GetTilePosition()
+        onBlockType = item.GetOnBlockType(world)
+
+        #Handle input
+        if(onBlockType[0] == 0 and onBlockType[1] == 3):
+            items.remove(item)
+            item.active = False
+
 
         #Handle conveyor movement
         if(onBlockType[0] == 1 and onBlockType[1] == 0):
@@ -91,7 +106,7 @@ def Tick(deltaTime : int):
             if(x != 0 and y != 0):
                 tileSprite = pygame.transform.rotate(assets["world"][world[x][y]],world[x][y][2])
                 screen.blit(tileSprite,(x*tileSize,y*tileSize))
-            if(world[x][y] != (0,1,0) and mouseTilePosition[0] == x and mouseTilePosition[1] == y):
+            if(world[x][y] != (0,1,0) and world[x][y] != (0,3,0) and mouseTilePosition[0] == x and mouseTilePosition[1] == y):
                 if(pygame.mouse.get_pressed()[0] or pygame.mouse.get_pressed()[2]):
 
                     #preview : pygame.Surface = assets["world"][(2,1)].copy()
@@ -109,9 +124,13 @@ def Tick(deltaTime : int):
                     preview = pygame.transform.rotate(preview,placementRotation)
                     screen.blit(preview,(x*tileSize,y*tileSize))
 
+    #Render Generators
+    for gen in generators:
+        screen.blit(assets["world"][0,2], gen.position)
+
     #Render Items
     for item in items:
-        screen.blit(assets["items"][item.spriteIdent], (item.position[0],item.position[1]))
+        screen.blit(assets["ritems"][item.spriteIdent], (item.position[0] + 2.5,item.position[1] + 2.5))
 
 
     #ENGINE RENDERING FINISH
@@ -142,14 +161,22 @@ pygame.display.set_caption("LudumDare54 - AncientEntity")
 pygame.display.set_icon(assets["world"][(1,0)])
 screen = pygame.Surface((256,256))
 world = []
-items = [Item((0,0),[32,32]),Item((0,0),[64,32])]
+items = []
+generators = []
 for x in range(16):
     r = []
     for y in range(16):
         if(x == 0 or x == 15 or y == 0 or y == 15):
             r.append((0,1,0))
         else:
-            r.append((0,0,0))
+            chance = random.randint(0,100)
+            if(chance <= 90):
+                r.append((0, 0, 0))
+            elif(chance <= 95):
+                r.append((0, 3, 0))
+            else:
+                r.append((0, 0, 0))
+                generators.append(ItemGen((random.randint(0,9),random.randint(0,1)),[x*16,y*16]))
     world.append(r)
 
 running = True
