@@ -31,6 +31,14 @@ def LoadAssets():
     assets["trackB"] = pygame.mixer.Sound("sound\\B Loop.wav")
     assets["backMusic"] = pygame.mixer.Sound("sound\\backgroundmusic.wav")
 
+    #SFX
+    assets["place"] = pygame.mixer.Sound("sound\\place.wav")
+    assets["place"].set_volume(0.15)
+    assets["notificationsound"] = pygame.mixer.Sound("sound\\notificationsound.wav")
+    assets["notificationsound"].set_volume(0.15)
+    assets["loss"] = pygame.mixer.Sound("sound\\loss.wav")
+    assets["loss"].set_volume(0.15)
+
 
     print("[Assets] Loading Assets Completed")
 
@@ -44,6 +52,7 @@ def CreateNewNotification(text):
     newTextRender = assets["infoFont"].render(text, False, (250, 250, 250))
     newTextRender.convert_alpha()
     notifications.append((newTextRender,time.time()))
+    assets["notificationsound"].play()
 
 def TriggerLoss(reason):
     global isInMenu, menuType, items, generators, lossReason, delayedItems
@@ -55,6 +64,7 @@ def TriggerLoss(reason):
     items = []
     lossReason = reason
     delayedItems = []
+    assets["loss"].play()
 
 def GetValidPosition(worldRef):
     for i in range(200):
@@ -353,10 +363,12 @@ def Tick(deltaTime : int):
 
                             world[x][y] = (placementIdent[0],placementIdent[1],placementRotation)
                             money -= 5
+                            assets["place"].play()
 
                     elif(world[x][y] != (0,0,0)):
                         world[x][y] = (0,0,0)
                         money += 5
+                        assets["place"].play()
                 else:
                     preview : pygame.Surface = assets["world"][placementIdent].copy()
                     preview.convert_alpha()
