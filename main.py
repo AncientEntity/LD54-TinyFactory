@@ -3,6 +3,7 @@ import time, random
 
 from itemgen import ItemGen
 from spritesheet import *
+from sys import exit
 from item import *
 
 def LoadAssets():
