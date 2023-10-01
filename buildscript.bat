@@ -1,5 +1,5 @@
 :: windows exe
-pyinstaller.exe --noconsole main.py --specpath build/spec --distpath build/dist --workpath build/build
+pyinstaller.exe --noconsole main.py --specpath build/spec --distpath build/dist --workpath build/build --exclude numpy
 robocopy art build/dist/main/art /E
 robocopy sound build/dist/main/sound /E
 robocopy data build/dist/main/data /E
