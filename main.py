@@ -33,8 +33,8 @@ def GetValidPosition(worldRef):
             return [xRand,yRand]
 
 def ThreadDelayedItemAdding():
-    global items
-    while True:
+    global items, running
+    while running:
         for itemDelay in delayedItems: #timeStarted, delay, item
             if(time.time() - itemDelay[0] >= itemDelay[1]):
                 items.append(itemDelay[2])
@@ -179,8 +179,8 @@ def Tick(deltaTime : int):
 
 
     #Render World
-    for x in range(16):
-        for y in range(16):
+    for x in range(len(world)):
+        for y in range(len(world[0])):
             screen.blit(assets["world"][world[0][0]],(x*tileSize,y*tileSize))
             if(x != 0 and y != 0):
                 tileSprite = None
@@ -194,7 +194,7 @@ def Tick(deltaTime : int):
                 if(world[x][y][0] == 0 and world[x][y][1] == 3):
                     preview: pygame.Surface = assets["ritems"][world[x][y][2]].copy()
                     preview.convert_alpha()
-                    preview.set_alpha(80)
+                    preview.set_alpha(150)
                     screen.blit(preview, (x * tileSize + 3, y * tileSize + 3))
 
             if(world[x][y] != (0,1,0) and (world[x][y][0] != 0 or world[x][y][1] != 3) and mouseTilePosition[0] == x and mouseTilePosition[1] == y):
@@ -244,13 +244,13 @@ def Tick(deltaTime : int):
 
     #ENGINE RENDERING FINISH
 
-    window.blit(pygame.transform.scale(screen,(512,512)),(0,0))
+    window.blit(pygame.transform.scale(screen,(512,544)),(0,0))
     #pygame.draw.arc(window,(255,0,0),pygame.Rect(450,10,20,20),0,math.pi)
 
     #FPS Counter
-    #if(trueDelta != 0):
-    #    fpsText = assets["fpsFont"].render("FPS: "+str(int(1.0 / trueDelta)),False,(250,250,250))
-    #    window.blit(fpsText,(3,3))
+    if(trueDelta != 0):
+        fpsText = assets["fpsFont"].render("FPS: "+str(int(1.0 / trueDelta)),False,(250,250,250))
+        window.blit(fpsText,(100,3))
 
     moneyText = assets["moneyFont"].render("$" + str(money), False, (250, 250, 250))
     window.blit(moneyText,(3,3))
@@ -271,10 +271,10 @@ LoadAssets()
 placementRotation = 0
 placementIdent = (1,0)
 
-window = pygame.display.set_mode((512,512))
+window = pygame.display.set_mode((512,544))
 pygame.display.set_caption("Tiny Factory - LD54 - AncientEntity")
 pygame.display.set_icon(assets["world"][(1,0)])
-screen = pygame.Surface((256,256))
+screen = pygame.Surface((256,272))
 world = []
 items = []
 delayedItems = []
@@ -282,20 +282,11 @@ generators = []
 money = 160
 for x in range(16):
     r = []
-    for y in range(16):
-        if(x == 0 or x == 15 or y == 0 or y == 15):
+    for y in range(18):
+        if(x == 0 or x == 15 or y == 0 or y >= 15):
             r.append((0,1,0))
         else:
             r.append((0,0,0))
-            '''
-            chance = random.randint(0,100)
-            if(chance <= 90):
-                r.append((0, 0, 0))
-            elif(chance <= 95):
-                r.append((0, 3, 0))
-            else:
-                r.append((0, 0, 0))
-                generators.append(ItemGen((random.randint(0,9),random.randint(0,1)),[x*16,y*16]))'''
     world.append(r)
 
 running = True
@@ -316,3 +307,5 @@ while running:
         delta = 1.0 / 30.0
 
     Tick(delta)
+
+print("[Engine] Loop has ended. Engine/Game shutting down.")
