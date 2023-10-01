@@ -1,5 +1,5 @@
 import pygame
-import time, random
+import time, random, threading
 
 from itemgen import ItemGen
 from spritesheet import *
@@ -33,6 +33,14 @@ def GetValidPosition(worldRef):
         if((worldRef[xRand][yRand][0] == 0 and worldRef[xRand][yRand][0] == 0) or (worldRef[xRand][yRand][0] == 0 and worldRef[xRand][yRand][0] == 1)):
             return [xRand,yRand]
 
+def ThreadDelayedItemAdding():
+    global items
+    while True:
+        for timeStarted, delay, item in delayedItems:
+            if(time.time() - timeStarted >= delay):
+                items.append(item)
+        time.sleep(0.1)
+
 def PlaceNewObjective():
     targetItem = [random.randint(0,8),random.randint(0,1)]
     validIn = GetValidPosition(world)
@@ -63,8 +71,10 @@ def Tick(deltaTime : int):
             #TEMP FOR DEBUG SHOULD GET REMOVED BEFORE RELEASE :))))
             elif(event.key == pygame.K_1):
                 placementIdent = (1,0)
-            elif(event.key == pygame.K_2):
-                placementIdent = (2,0)
+            elif (event.key == pygame.K_2):
+                placementIdent = (2, 0)
+            elif (event.key == pygame.K_3):
+                placementIdent = (3, 0)
 
     mouseWorldPosition = pygame.mouse.get_pos()
     mouseTilePosition = (mouseWorldPosition[0] // 32, mouseWorldPosition[1] // 32)
@@ -89,9 +99,40 @@ def Tick(deltaTime : int):
             if(onBlockType[2] == item.spriteIdent):
                 pass #If item is the correct one, eventually add money and such.
 
+        #Handle underground belts, if on entrance
+        if(onBlockType[0] == 2 and onBlockType[1] == 0):
+            # Try to locate underground exit based on entrance rotation
+            rot = world[itemTilePosition[0]][itemTilePosition[1]][2]
+            lookDirection = [0,0]
+            if(rot == 0): #Move right
+                lookDirection = [1,0]
+            elif(rot == 180): #Move left
+                lookDirection = [-1, 0]
+            elif(rot == 270): #Move down
+                lookDirection = [0, 1]
+            elif(rot == 90): #Move up
+                lookDirection = [0, -1]
+            curPos = list(itemTilePosition[:]) #Convert from tuple
+            for i in range(3): #Max underground of 3
+                curPos[0] += lookDirection[0]
+                curPos[1] += lookDirection[1]
+                curBlock = world[curPos[0]][curPos[1]]
+                if(curBlock[0] == 3 and curBlock[1] == 0):
+                    #FOUND EXIT
+                    item.position = [curPos[0]*16,curPos[1]*16]
+                    items.remove(item)
+                    delayedItems.append([time.time(),i+1,item])
+                    #asyncio.run(AsyncItemAdd(item,i+1))
+
+                    #asyncLoop = asyncio.get_event_loop()
+                    #asyncLoop.run_until_complete(AsyncItemAdd(item,i+1))
+
+                    break
+
+
 
         #Handle conveyor movement
-        if(onBlockType[0] == 1 and onBlockType[1] == 0):
+        if((onBlockType[0] == 1 and onBlockType[1] == 0) or (onBlockType[0] == 3 and onBlockType[1] == 0)): #if conveyor or underground exit
             #block it is on is conveyor.
             rot = onBlockType[2]
             moveSpeed = [0,0]
@@ -161,6 +202,14 @@ def Tick(deltaTime : int):
                     screen.blit(assets["world"][(2,1)],(x*tileSize,y*tileSize))
                     if(pygame.mouse.get_pressed()[0]):
                         world[x][y] = (placementIdent[0],placementIdent[1],placementRotation)
+
+                        #Placing underground belt entrance
+                        if(placementIdent[0] == 2 and placementIdent[1] == 0):
+                            pass
+                        #Placing underground belt exit
+                        elif(placementIdent[0] == 3 and placementIdent[1] == 0):
+                            pass
+
                     else:
                         world[x][y] = (0,0,0)
                 else:
@@ -208,6 +257,7 @@ pygame.display.set_icon(assets["world"][(1,0)])
 screen = pygame.Surface((256,256))
 world = []
 items = []
+delayedItems = []
 generators = []
 for x in range(16):
     r = []
@@ -232,6 +282,9 @@ lastFrameTime = time.time()
 trueDelta = 0
 
 lastObjectivePlaced = 0
+
+delayedThread = threading.Thread(target=ThreadDelayedItemAdding)
+delayedThread.start()
 
 while running:
     delta = time.time() - lastFrameTime
