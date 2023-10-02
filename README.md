@@ -9,9 +9,13 @@ No game engine used! Just raw python and pygame for visuals. Usually use Unity b
 
 
 ## Controls:
+
 Place: Left Click
+
 Remove: Right Click
+
 Rotate: R
+
 Swap Block: 1/2/3
 
 ## Installation
