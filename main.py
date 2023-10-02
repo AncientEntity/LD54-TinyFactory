@@ -2,14 +2,16 @@ import pygame
 import time, random, threading, math, pickle
 
 from os import path, mkdir
+from sys import platform
 from itemgen import ItemGen
 from spritesheet import *
 from button import *
 
+
 DEBUGGAME = False
 
 def LoadAssets():
-    global assets, tileSize
+    global assets, tileSize, displayScaleFactor
 
     print("[Assets] Loading Assets Started")
 
@@ -19,11 +21,11 @@ def LoadAssets():
     assets["ritems"] = SpriteSheet("art\\ryanitems.png", 10)
 
     #Fonts
-    assets["fpsFont"] = pygame.font.Font("art\\FreeSansBold.ttf",10)
-    assets["moneyFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",20)
-    assets["titleFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",40)
-    assets["descFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",30)
-    assets["infoFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",15)
+    assets["fpsFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",int(10*displayScaleFactor))
+    assets["moneyFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",int(20*displayScaleFactor))
+    assets["titleFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",int(40*displayScaleFactor))
+    assets["descFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",int(30*displayScaleFactor))
+    assets["infoFont"] = pygame.font.Font("art\\PixeloidMono-d94EV.ttf",int(15*displayScaleFactor))
 
     pygame.mixer.init()
     #Music
@@ -198,7 +200,8 @@ def Tick(deltaTime : int):
                 TriggerLoss("DEBUG LOSS MESSAGE.")
 
     mouseWorldPosition = pygame.mouse.get_pos()
-    mouseTilePosition = (mouseWorldPosition[0] // 32, mouseWorldPosition[1] // 32)
+    mouseTilePosition = (int(mouseWorldPosition[0] // (32*displayScaleFactor)),int(mouseWorldPosition[1] // (32*displayScaleFactor)))
+    mousedOverBlock = world[mouseTilePosition[0]][mouseTilePosition[1]]
 
     HandleObjectives()
 
@@ -399,6 +402,24 @@ def Tick(deltaTime : int):
                         rotatedPreview = pygame.transform.rotate(assets["world"][[1, 1]],rot)
                         screen.blit(rotatedPreview, (curPos[0] * tileSize, curPos[1] * tileSize))
 
+    #If placing conveyors have helpful directional arrow appear
+    if (isInMenu == False and placementIdent[0] == 1 and placementIdent[1] == 0 and (mousedOverBlock[0] != 0 or mousedOverBlock[1] != 1)):
+        rot = placementRotation
+        lookDirection = [0, 0]
+        if (rot == 0):  # Move right
+            lookDirection = [1, 0]
+        elif (rot == 180):  # Move left
+            lookDirection = [-1, 0]
+        elif (rot == 270):  # Move down
+            lookDirection = [0, 1]
+        elif (rot == 90):  # Move up
+            lookDirection = [0, -1]
+        curPos = [mouseTilePosition[0],mouseTilePosition[1]]  # Convert from tuple
+        curPos[0] += lookDirection[0] * 0.5
+        curPos[1] += lookDirection[1] * 0.5
+
+        rotatedPreview = pygame.transform.rotate(assets["world"][[2, 3]],rot)
+        screen.blit(rotatedPreview, (curPos[0] * tileSize, curPos[1] * tileSize))
 
     #Render Generators
     for gen in generators:
@@ -411,7 +432,7 @@ def Tick(deltaTime : int):
 
     #ENGINE RENDERING FINISH
 
-    window.blit(pygame.transform.scale(screen,(512,544)),(0,0))
+    screenUIPass.blit(pygame.transform.scale(screen,(512 * displayScaleFactor,544 * displayScaleFactor)),(0,0))
     #pygame.draw.arc(window,(255,0,0),pygame.Rect(450,10,20,20),0,math.pi)
 
     #FPS Counter
@@ -421,23 +442,23 @@ def Tick(deltaTime : int):
 
     if(isInMenu == False):
         moneyText = assets["moneyFont"].render("$" + str(money), False, (250, 250, 250))
-        window.blit(moneyText,(40,5))
+        screenUIPass.blit(moneyText,(40*displayScaleFactor,5*displayScaleFactor))
         currentLevelText = assets["moneyFont"].render("Level: " + str(levelCount), False, (250, 250, 250))
         untilNextObjectiveText = assets["moneyFont"].render("Next Level: " + str(int(15 - (time.time() - lastObjectivePlaced))) + "s", False, (250, 250, 250))
-        window.blit(currentLevelText,(130,5))
-        window.blit(untilNextObjectiveText,(280,5))
+        screenUIPass.blit(currentLevelText,(130*displayScaleFactor,5*displayScaleFactor))
+        screenUIPass.blit(untilNextObjectiveText,(280*displayScaleFactor,5*displayScaleFactor))
         #Select Buttons
         for button in buttons:
             clickResult = button.Tick()
             if(clickResult == True):
-                button.ChangeScale([45,45])
+                button.ChangeScale([45*displayScaleFactor,45*displayScaleFactor])
             else:
-                button.ChangeScale([40,40])
-            button.Render(window)
+                button.ChangeScale([40*displayScaleFactor,40*displayScaleFactor])
+            button.Render(screenUIPass)
         #Current Placmeent Ident Preview
-        currentPreview = pygame.transform.scale(assets["world"][placementIdent],[32,32])
+        currentPreview = pygame.transform.scale(assets["world"][placementIdent],[32*displayScaleFactor,32*displayScaleFactor])
         currentPreview = pygame.transform.rotate(currentPreview, placementRotation)
-        window.blit(currentPreview,(448,490))
+        screenUIPass.blit(currentPreview,(448*displayScaleFactor,490*displayScaleFactor))
 
         #Notification Render
         notIndex = 0
@@ -445,52 +466,67 @@ def Tick(deltaTime : int):
             render, startTime = notification
             if(time.time() - startTime <= 4):
                 render.set_alpha(300 - 255 * ((time.time() - startTime) / 3.0))
-                window.blit(render,(35,460 - 30 * notIndex))
+                screenUIPass.blit(render,(35*displayScaleFactor,(460 - 30 * notIndex)*displayScaleFactor))
                 notIndex += 1
             else:
                 notifications.remove(notification)
     elif(menuType == MENU_MAIN): #Main Menu
         titleTextShadow = assets["titleFont"].render("Tiny Factory", False, (0, 0, 0))
-        window.blit(titleTextShadow,(103,103))
+        screenUIPass.blit(titleTextShadow,(103*displayScaleFactor,103*displayScaleFactor))
         titleText = assets["titleFont"].render("Tiny Factory", False, (255, 255, 255))
-        window.blit(titleText,(100,100))
+        screenUIPass.blit(titleText,(100*displayScaleFactor,100*displayScaleFactor))
         startTextShadow = assets["descFont"].render("Press Space to Start", False, (0, 0, 0))
-        window.blit(startTextShadow,(69,203))
+        screenUIPass.blit(startTextShadow,(69*displayScaleFactor,203*displayScaleFactor))
         startText = assets["descFont"].render("Press Space to Start", False, (255, 255, 255))
-        window.blit(startText,(65,200))
+        screenUIPass.blit(startText,(65*displayScaleFactor,200*displayScaleFactor))
 
         infoText = assets["infoFont"].render("A game by Ryan (AncientEntity) for Ludum Dare 54!", False, (255, 255, 255))
-        window.blit(infoText,(15,500))
+        screenUIPass.blit(infoText,(15*displayScaleFactor,500*displayScaleFactor))
     elif(menuType == MENU_LOST):
         titleTextShadow = assets["titleFont"].render("You Lost!", False, (0, 0, 0))
-        window.blit(titleTextShadow,(136,103))
+        screenUIPass.blit(titleTextShadow,(136*displayScaleFactor,103*displayScaleFactor))
         titleText = assets["titleFont"].render("You Lost!", False, (255, 255, 255))
-        window.blit(titleText,(133,100))
+        screenUIPass.blit(titleText,(133*displayScaleFactor,100*displayScaleFactor))
         startTextShadow = assets["descFont"].render("Press Space to Restart", False, (0, 0, 0))
-        window.blit(startTextShadow,(51,203))
+        screenUIPass.blit(startTextShadow,(51*displayScaleFactor,203*displayScaleFactor))
         startText = assets["descFont"].render("Press Space to Restart", False, (255, 255, 255))
-        window.blit(startText,(48,200))
+        screenUIPass.blit(startText,(48*displayScaleFactor,200*displayScaleFactor))
         currentLevelTextShadow = assets["moneyFont"].render("Level: " + str(levelCount), False, (0, 0, 0))
-        window.blit(currentLevelTextShadow,(93,253))
+        screenUIPass.blit(currentLevelTextShadow,(93*displayScaleFactor,253*displayScaleFactor))
         currentLevelText = assets["moneyFont"].render("Level: " + str(levelCount), False, (250, 250, 250))
-        window.blit(currentLevelText,(90,250))
+        screenUIPass.blit(currentLevelText,(90*displayScaleFactor,250*displayScaleFactor))
         finalMoneyTextShadow = assets["moneyFont"].render("Money: " + str(money), False, (0, 0, 0))
-        window.blit(finalMoneyTextShadow,(93,283))
+        screenUIPass.blit(finalMoneyTextShadow,(93*displayScaleFactor,283*displayScaleFactor))
         finalMoneyText = assets["moneyFont"].render("Money: " + str(money), False, (250, 250, 250))
-        window.blit(finalMoneyText,(90,280))
+        screenUIPass.blit(finalMoneyText,(90*displayScaleFactor,280*displayScaleFactor))
 
         lossReasonTextShadow = assets["moneyFont"].render("Reason: "+lossReason, False, (0,0,0))
-        window.blit(lossReasonTextShadow,(93,313))
+        screenUIPass.blit(lossReasonTextShadow,(93*displayScaleFactor,313*displayScaleFactor))
         lossReasonText = assets["moneyFont"].render("Reason: "+lossReason, False, (250,250,250))
-        window.blit(lossReasonText,(90,310))
+        screenUIPass.blit(lossReasonText,(90*displayScaleFactor,310*displayScaleFactor))
 
 
         infoText = assets["infoFont"].render("A game by Ryan (AncientEntity) for Ludum Dare 54!", False, (255, 255, 255))
-        window.blit(infoText,(15,500))
+        screenUIPass.blit(infoText,(15*displayScaleFactor,500*displayScaleFactor))
 
-    pygame.display.update(pygame.Rect(0,0,640,640))
+    window.blit(screenUIPass,(0,0))
+    pygame.display.update(pygame.Rect(0,0,640 * displayScaleFactor,640 * displayScaleFactor))
 
 #Engine Setup
+
+OSPlatform = platform #From sys.platform
+monitorSize = [1920,1080]
+if(OSPlatform == "win32" or OSPlatform == "win64"):
+    import ctypes
+    user32 = ctypes.windll.user32
+    width = user32.GetSystemMetrics(0)
+    height = user32.GetSystemMetrics(1)
+    monitorSize = [width,height]
+displayScaleFactor = float(monitorSize[1]) / 1080.0
+displayScaleFactor *= 1.25
+print("[Engine] Monitor Scaling: "+str(displayScaleFactor)+"x dimensions: ",monitorSize)
+
+
 pygame.init()
 
 tileSize = 16
@@ -502,10 +538,11 @@ LoadAssets()
 placementRotation = 0
 placementIdent = (1,0)
 
-window = pygame.display.set_mode((512,544))
+window = pygame.display.set_mode((512 * displayScaleFactor,544 * displayScaleFactor))
 pygame.display.set_caption("Tiny Factory - LD54 - AncientEntity")
 pygame.display.set_icon(assets["world"][(1,0)])
 screen = pygame.Surface((256,272))
+screenUIPass = pygame.Surface((512 * displayScaleFactor,544 * displayScaleFactor))
 world = []
 items = []
 delayedItems = []
@@ -514,13 +551,13 @@ generators = []
 #Initialize buttons
 buttons = []
 
-conveyorButton = Button(assets["world"][[1,3]],assets["world"][[1,0]],[32,490])
+conveyorButton = Button(assets["world"][[1,3]],assets["world"][[1,0]],[32*displayScaleFactor,490*displayScaleFactor])
 conveyorButton.onClick.append(lambda : SetPlacementIdent((1,0),0))
 buttons.append(conveyorButton)
-underEntranceButton = Button(assets["world"][[1,3]],assets["world"][[0,0]],[77,490])
+underEntranceButton = Button(assets["world"][[1,3]],assets["world"][[0,0]],[77*displayScaleFactor,490*displayScaleFactor])
 underEntranceButton.onClick.append(lambda : SetPlacementIdent((2,0),3))
 buttons.append(underEntranceButton)
-underExitButton = Button(assets["world"][[1,3]],assets["world"][[0,0]],[122,490])
+underExitButton = Button(assets["world"][[1,3]],assets["world"][[0,0]],[122*displayScaleFactor,490*displayScaleFactor])
 underExitButton.onClick.append(lambda : SetPlacementIdent((3,0),3))
 buttons.append(underExitButton)
 
