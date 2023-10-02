@@ -29,17 +29,17 @@ def LoadAssets():
 
     pygame.mixer.init()
     #Music
-    #assets["trackA"] = pygame.mixer.Sound("sound/A Loop.wav")
-    #assets["trackB"] = pygame.mixer.Sound("sound/B Loop.wav")
+    assets["trackA"] = pygame.mixer.Sound("sound/A Loop.ogg")
+    assets["trackB"] = pygame.mixer.Sound("sound/B Loop.ogg")
     #assets["backMusic"] = pygame.mixer.Sound("sound/backgroundmusic.wav")
 
     #SFX
-    #assets["place"] = pygame.mixer.Sound("sound/place.wav")
-    #assets["place"].set_volume(0.15)
-    #assets["notificationsound"] = pygame.mixer.Sound("sound/notificationsound.wav")
-    #assets["notificationsound"].set_volume(0.15)
-    #assets["loss"] = pygame.mixer.Sound("sound/loss.wav")
-    #assets["loss"].set_volume(0.15)
+    assets["place"] = pygame.mixer.Sound("sound/place.ogg")
+    assets["place"].set_volume(0.15)
+    assets["notificationsound"] = pygame.mixer.Sound("sound/notificationsound.ogg")
+    assets["notificationsound"].set_volume(0.15)
+    assets["loss"] = pygame.mixer.Sound("sound/loss.ogg")
+    assets["loss"].set_volume(0.15)
 
 
     print("[Assets] Loading Assets Completed")
@@ -54,7 +54,7 @@ def CreateNewNotification(text):
     newTextRender = assets["infoFont"].render(text, False, (250, 250, 250))
     newTextRender.convert_alpha()
     notifications.append((newTextRender,time.time()))
-    #assets["notificationsound"].play()
+    assets["notificationsound"].play()
 
 def TriggerLoss(reason):
     global isInMenu, menuType, items, generators, lossReason, delayedItems
@@ -66,7 +66,7 @@ def TriggerLoss(reason):
     items = []
     lossReason = reason
     delayedItems = []
-    #assets["loss"].play()
+    assets["loss"].play()
 
 def GetValidPosition(worldRef):
     for i in range(200):
@@ -84,22 +84,23 @@ def GetValidPosition(worldRef):
             return [xRand,yRand]
     return False
 
+def SubsystemTick():
+    global items, running
+    # Music Handler
+    if (musicChannel.get_sound() == None):
+        musicChannel.set_volume(0.05)
+        musicChannel.play(random.choice([assets["trackA"],assets["trackB"]]))
+
+    # Handle Delayed Items
+    for itemDelay in delayedItems:  # timeStarted, delay, item
+        if (time.time() - itemDelay[0] >= itemDelay[1]):
+            items.append(itemDelay[2])
+            delayedItems.remove(itemDelay)
+
 def ThreadSubsystemHandler():
     global items, running
     while running:
-
-        #Music Handler
-        if(musicChannel.get_sound() == None):
-            musicChannel.set_volume(0.05)
-            #musicChannel.play(random.choice([assets["trackA"],assets["trackB"]]))
-
-
-        #Handle Delayed Items
-        for itemDelay in delayedItems: #timeStarted, delay, item
-            if(time.time() - itemDelay[0] >= itemDelay[1]):
-                items.append(itemDelay[2])
-                delayedItems.remove(itemDelay)
-
+        SubsystemTick()
         time.sleep(0.1)
 
 def PlaceNewObjective():
@@ -375,12 +376,12 @@ def Tick(deltaTime : int):
 
                             world[x][y] = (placementIdent[0],placementIdent[1],placementRotation)
                             money -= 5
-                            #assets["place"].play()
+                            assets["place"].play()
 
                     elif(world[x][y] != (0,0,0)):
                         world[x][y] = (0,0,0)
                         money += 5
-                       #assets["place"].play()
+                        assets["place"].play()
                 else:
                     preview : pygame.Surface = assets["world"][placementIdent].copy()
                     preview.convert_alpha()
@@ -612,11 +613,12 @@ lastCriticalOvertimeNotification = 0
 lastGeneratorBackedUpNotification = 0
 notifications = []
 
-subsystemThread = threading.Thread(target=ThreadSubsystemHandler)
-subsystemThread.start()
+#subsystemThread = threading.Thread(target=ThreadSubsystemHandler)
+#subsystemThread.start()
 
 
 async def EngineLoop():
+    pygame.mixer.init()
     while running:
         global lastFrameTime
         delta = time.time() - lastFrameTime
@@ -627,6 +629,7 @@ async def EngineLoop():
             delta = 1.0 / 30.0
 
         Tick(delta)
+        SubsystemTick()
 
         await asyncio.sleep(0)
 
