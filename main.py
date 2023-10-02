@@ -538,6 +538,7 @@ print("[Engine] Monitor Scaling: "+str(displayScaleFactor)+"x dimensions: ",moni
 
 
 pygame.init()
+random.seed(time.time())
 
 tileSize = 16
 assets = {}
