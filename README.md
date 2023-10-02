@@ -15,7 +15,7 @@ Rotate: R
 Swap Block: 1/2/3
 
 ## Installation
-Fairly simple, just download the code and run main.py I have a windows compiled version on the [Ludum Dare page](https://ldjam.com/events/ludum-dare/54/tiny-factory) if that's more your thing! 
+Fairly simple, just download the code and run main.py (assuming you have python 3.X and pygame installed) I have a windows compiled version on the [Ludum Dare page](https://ldjam.com/events/ludum-dare/54/tiny-factory) if that's more your thing! 
 
 ## Gifs
 
