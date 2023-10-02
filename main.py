@@ -200,7 +200,16 @@ def Tick(deltaTime : int):
                 TriggerLoss("DEBUG LOSS MESSAGE.")
 
     mouseWorldPosition = pygame.mouse.get_pos()
-    mouseTilePosition = (int(mouseWorldPosition[0] // (32*displayScaleFactor)),int(mouseWorldPosition[1] // (32*displayScaleFactor)))
+    mouseTilePosition = [int(mouseWorldPosition[0] // (32*displayScaleFactor)),int(mouseWorldPosition[1] // (32*displayScaleFactor))]
+    if(mouseTilePosition[0] < 0):
+        mouseTilePosition[0] = 0
+    elif(mouseTilePosition[0] >= len(world)):
+        mouseTilePosition[0] = len(world)-1
+    if(mouseTilePosition[1] < 0):
+        mouseTilePosition[1] = 0
+    elif(mouseTilePosition[1] >= len(world[0])):
+        mouseTilePosition[1] = len(world[0])-1
+
     mousedOverBlock = world[mouseTilePosition[0]][mouseTilePosition[1]]
 
     HandleObjectives()
