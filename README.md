@@ -1,4 +1,4 @@
-# LudumDare54
+# LudumDare54 - Tiny Factory
 
 You’re the manager of a tiny factory getting orders to expand! Every 15 seconds a new input and output will appear and you have to connect them by building conveyor belts! The goal is to see how long you can last until you run out of space to build more. You’re 2 most important tools will be the conveyor belt, and the underground belt.
 
